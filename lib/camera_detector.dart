@@ -23,7 +23,7 @@ import 'detector_painters.dart';
 import 'detector_utils.dart';
 import 'anti_spoofing.dart';
 
-enum Choice {view, delete, landmarkFace, normalFace, antiSpoofing, removeSpoofing }
+enum Choice {view, delete, landmarkFace, normalFace, }
 bool _landMarkFace = false;
 
 class CameraDetector extends StatefulWidget {
@@ -135,10 +135,10 @@ class _CameraDetectorState extends State<CameraDetector>  with WidgetsBindingObs
       enableAudio: false,
     );
 
-    void showInSnackBar(String message) {
-      // ignore: deprecated_member_use
-      _scaffoldKey.currentState?.showSnackBar(SnackBar(content: Text(message)));
-    }
+  void showInSnackBar(String message) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+}
+
 
     // If the controller is updated then update the UI.
     _camera.addListener(() {

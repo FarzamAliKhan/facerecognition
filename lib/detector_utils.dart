@@ -5,9 +5,7 @@
 // @dart=2.9
 
 import 'dart:async';
-
 import 'dart:math';
-import 'dart:typed_data';
 import 'dart:ui';
 import 'package:image/image.dart' as imglib;
 import 'package:camera/camera.dart';
@@ -85,9 +83,14 @@ class ScannerUtils {
     for (var i = 0; i < inputSize; i++) {
       for (var j = 0; j < inputSize; j++) {
         var pixel = image.getPixel(j, i);
-        buffer[pixelIndex++] = (imglib.getRed(pixel) - mean) / std;
-        buffer[pixelIndex++] = (imglib.getGreen(pixel) - mean) / std;
-        buffer[pixelIndex++] = (imglib.getBlue(pixel) - mean) / std;
+
+        /// mean: 128
+        /// std: 128
+        ///
+
+          buffer[pixelIndex++] = (pixel.r - mean) / std;
+          buffer[pixelIndex++] = (pixel.g - mean) / std;
+          buffer[pixelIndex++] = (pixel.b - mean) / std;      // Blue component
       }
     }
     return convertedBytes.buffer.asFloat32List();

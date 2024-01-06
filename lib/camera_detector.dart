@@ -7,21 +7,19 @@
 
 import 'dart:convert';
 import 'dart:io';
-import 'dart:ui';
-import 'package:flutter/cupertino.dart';
-import 'package:flutter/rendering.dart';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:quiver/collection.dart';
 import 'package:image/image.dart' as imglib;
 import 'package:camera/camera.dart';
 import 'package:google_ml_vision/google_ml_vision.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:tflite_flutter/tflite_flutter.dart' as tfl;
 
 import 'detector_painters.dart';
 import 'detector_utils.dart';
-import 'anti_spoofing.dart';
+
 
 enum Choice {view, delete, landmarkFace, normalFace, }
 bool _landMarkFace = false;
@@ -53,9 +51,8 @@ class _CameraDetectorState extends State<CameraDetector>  with WidgetsBindingObs
   String _faceName = "Not Recognized";
   bool _addFaceScreen = false;
   String spoofDetectOutput;
-  bool _enableAntiSpoofing = false;
 
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  //final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   final FaceDetector _faceDetector = GoogleVision.instance
       .faceDetector(FaceDetectorOptions(
@@ -104,14 +101,13 @@ class _CameraDetectorState extends State<CameraDetector>  with WidgetsBindingObs
 
   Future loadModel() async {
     try {
-      this.interpreter = await tfl.Interpreter.fromAsset('mobilefacenet.tflite');
+      this.interpreter = await tfl.Interpreter.fromAsset('assets/mobilefacenet.tflite');
 
       print('**********\n Loaded successfully model mobilefacenet.tflite \n*********\n');
     } catch (e) {
       print('Failed to load model.');
       print(e);
     }
-    FaceAntiSpoofing.loadSpoofModel();
   }
 
   Future<void> _initializeCamera() async {
@@ -201,23 +197,21 @@ class _CameraDetectorState extends State<CameraDetector>  with WidgetsBindingObs
             imglib.Image croppedImage;
             if (Platform.isAndroid) {
               croppedImage = imglib.copyCrop(
-                  convertedImage, x.round(), y.round(), w.round(), h.round());
+                  convertedImage, x: x.round(), y: y.round(), width: w.round(), height: h.round());
             } else {
               croppedImage = imglib.copyCrop(
-                    convertedImage, x.round(), y.round(), w.round(), h.round());
+                    convertedImage, x: x.round(), y:y.round(), width: w.round(), height: h.round());
             }
             //Store detected face into
             _displayBase64FaceImage = base64Encode(imglib.encodeJpg(
                 imglib.copyResize(croppedImage, width: 200, height: 200)));
 
-            croppedImage = imglib.copyResizeCropSquare(croppedImage, 112);
+            croppedImage = imglib.copyResizeCropSquare(croppedImage, size: 112);
             // int startTime = new DateTime.now().millisecondsSinceEpoch;
             res = _recognizeFace(croppedImage);
             _faceName = res;
             //Judge the detected face for anti spoofing purpose
-            if (_enableAntiSpoofing) {
-              spoofDetectOutput = FaceAntiSpoofing.antiSpoofing(croppedImage, croppedImage);
-            }
+
             // int endTime = new DateTime.now().millisecondsSinceEpoch;
             // print("Inference took ${endTime - startTime}ms");
             finalResults.add(res, _face);
@@ -354,8 +348,6 @@ class _CameraDetectorState extends State<CameraDetector>  with WidgetsBindingObs
               else if (result == Choice.view) _viewLabels();
               else if (result == Choice.landmarkFace) _landMarkFace = true;
               else if (result == Choice.normalFace) _landMarkFace = false;
-              else if (result == Choice.antiSpoofing) _enableAntiSpoofing = true;
-              else if (result == Choice.removeSpoofing) _enableAntiSpoofing = false;
             },
             itemBuilder: (BuildContext context) => <PopupMenuEntry<Choice>>[
               const PopupMenuItem<Choice>(
@@ -373,14 +365,6 @@ class _CameraDetectorState extends State<CameraDetector>  with WidgetsBindingObs
               const PopupMenuItem<Choice>(
                 value: Choice.normalFace,
                 child: Text('Normal Faces'),
-              ),
-              const PopupMenuItem<Choice>(
-                value: Choice.antiSpoofing,
-                child: Text('Enable AntiSpoofing'),
-              ),
-              const PopupMenuItem<Choice>(
-                value: Choice.removeSpoofing,
-                child: Text('Disable AntiSpoofing'),
               ),
             ],
           ),
@@ -556,7 +540,7 @@ class _CameraDetectorState extends State<CameraDetector>  with WidgetsBindingObs
     _initializeCamera();
   }
 
-  static imglib.Image _convertCameraImage(CameraImage image, CameraLensDirection _dir) {
+  imglib.Image _convertCameraImage(CameraImage image, CameraLensDirection _dir) {
     try {
       imglib.Image img;
       if (image.format.group == ImageFormatGroup.yuv420) {
@@ -574,10 +558,10 @@ class _CameraDetectorState extends State<CameraDetector>  with WidgetsBindingObs
 
   static imglib.Image _convertBGRA8888(CameraImage image, CameraLensDirection _dir) {
     var img = imglib.Image.fromBytes(
-      image.width,
-      image.height,
-      image.planes[0].bytes,
-      format: imglib.Format.bgra,
+      width: image.width,
+      height: image.height,
+      bytes: image.planes[0].bytes as ByteBuffer,
+      order: imglib.ChannelOrder.bgra,
     );
 
     //var img1 = (_dir == CameraLensDirection.front)
@@ -587,10 +571,10 @@ class _CameraDetectorState extends State<CameraDetector>  with WidgetsBindingObs
 
   }
 
-  static imglib.Image _convertYUV420(CameraImage image, CameraLensDirection _dir) {
+   imglib.Image _convertYUV420(CameraImage image, CameraLensDirection _dir) {
     int width = image.width;
     int height = image.height;
-    var img = imglib.Image(width, height);
+    var img = imglib.Image(width:width, height: height);
     const int hexFF = 0xFF000000;
     final int uvyButtonStride = image.planes[1].bytesPerRow;
     final int uvPixelStride = image.planes[1].bytesPerPixel;
@@ -607,12 +591,15 @@ class _CameraDetectorState extends State<CameraDetector>  with WidgetsBindingObs
             .round()
             .clamp(0, 255);
         int b = (yp + up * 1814 / 1024 - 227).round().clamp(0, 255);
-        img.data[index] = hexFF | (b << 16) | (g << 8) | r;
+
+        img.setPixelRgba(x, y, r, (g << 8), (b << 16), hexFF);
+        //img.data[index] = hexFF | (b << 16) | (g << 8) | r;
+        //img = (data[index] = hexFF | (b << 16) | (g << 8) | r) as imglib.Image;
       }
     }
     var img1 = (_dir == CameraLensDirection.front)
-        ? imglib.copyRotate(img, -90)
-        : imglib.copyRotate(img, 90);
+        ? imglib.copyRotate(img, angle:-90)
+        : imglib.copyRotate(img, angle:90);
     return img1;
 
   }
